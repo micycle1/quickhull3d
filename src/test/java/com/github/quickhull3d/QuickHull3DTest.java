@@ -1,5 +1,6 @@
 package com.github.quickhull3d;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,7 +28,6 @@ class QuickHull3DTest {
 	private static final int EDGE_DEGENERACY = 1;
 	static final int VERTEX_DEGENERACY = 2;
 
-	// Keep configuration simple and close to original behavior:
 	private boolean triangulate = false;
 	private boolean testRotation = true;
 	private int degeneracyTest = VERTEX_DEGENERACY;
@@ -39,8 +39,6 @@ class QuickHull3DTest {
 	void setUp() {
 		rand = new Random(0x1234);
 	}
-
-	// ----------------- helpers (ported from original) -----------------
 
 	private boolean faceIndicesEqual(int[] indices1, int[] indices2) {
 		if (indices1.length != indices2.length) {
@@ -271,7 +269,9 @@ class QuickHull3DTest {
 
 	double[] addDegeneracy(int type, double[] coords, QuickHull3D hull) {
 		int numv = coords.length / 3;
-		int[][] faces = hull.getFaces();
+		int[][] faces = hull.getFaces(); // hull-relative indices
+		int[] hullToInput = hull.getVertexPointIndices();
+
 		double[] coordsx = new double[coords.length + faces.length * 3];
 		System.arraycopy(coords, 0, coordsx, 0, coords.length);
 
@@ -279,7 +279,6 @@ class QuickHull3DTest {
 		double eps = hull.getDistanceTolerance();
 
 		for (int i = 0; i < faces.length; i++) {
-			// random point on an edge
 			lam[0] = rand.nextDouble();
 			lam[1] = 1 - lam[0];
 			lam[2] = 0.0;
@@ -289,12 +288,11 @@ class QuickHull3DTest {
 				lam[1] = lam[2] = 0.0;
 			}
 
-			// NOTE: original code uses += with coordsx initially 0 for new point; we keep
-			// behavior.
 			for (int j = 0; j < 3; j++) {
-				int vtxi = faces[i][j];
+				int hullVid = faces[i][j];
+				int inputIdx = hullToInput[hullVid]; // critical fix
 				for (int k = 0; k < 3; k++) {
-					coordsx[numv * 3 + k] += lam[j] * coords[vtxi * 3 + k] + epsScale * eps * (rand.nextDouble() - 0.5);
+					coordsx[numv * 3 + k] += lam[j] * coords[inputIdx * 3 + k] + epsScale * eps * (rand.nextDouble() - 0.5);
 				}
 			}
 			numv++;
@@ -328,8 +326,6 @@ class QuickHull3DTest {
 			}
 		}
 	}
-
-	// ----------------- actual JUnit tests -----------------
 
 	@Test
 	void rejectsDegenerateInputs() {
@@ -412,6 +408,64 @@ class QuickHull3DTest {
 				testWithOptionalRotations(randomGridPoints(n, 4.0), null);
 			}
 		}
+	}
+
+	@Test
+	void hullShouldWorkAcrossScales() throws Exception {
+		double[] base = randomSphericalPoints(200, 1.0);
+
+		double[] scales = { 1e-9, 1.0, 1e9, 1e12 };
+		for (double s : scales) {
+			double[] scaled = base.clone();
+			for (int i = 0; i < scaled.length; i++)
+				scaled[i] *= s;
+			testWithOptionalRotations(scaled, null);
+		}
+	}
+
+	@Test
+	void hullShouldWorkWithLargeTranslations() throws Exception {
+		double[] coords = randomPoints(200, 1.0);
+
+		double tx = 1e9, ty = -1e9, tz = 5e8;
+		double[] shifted = coords.clone();
+		for (int i = 0; i < shifted.length; i += 3) {
+			shifted[i] += tx;
+			shifted[i + 1] += ty;
+			shifted[i + 2] += tz;
+		}
+		testWithOptionalRotations(shifted, null);
+	}
+
+	@Test
+	void hullShouldHandleMixedMagnitudeCoordinates() throws Exception {
+		double[] coords = randomPoints(15, 1.0);
+		for (int i = 0; i < coords.length; i += 3) {
+			coords[i] *= 1e5; // x huge
+			// y,z stay ~1
+		}
+		testWithOptionalRotations(coords, null);
+	}
+
+	@Test
+	void duplicatePointsShouldBeHandledDeterministically() {
+		double[] coords = randomPoints(100, 1.0);
+
+		// append exact duplicates of first 10 points
+		double[] withDup = Arrays.copyOf(coords, coords.length + 10 * 3);
+		System.arraycopy(coords, 0, withDup, coords.length, 10 * 3);
+
+		QuickHull3D hull = new QuickHull3D();
+		assertDoesNotThrow(() -> hull.build(withDup));
+	}
+
+	@Test
+	@Tag("stress")
+	void horizonShouldNotStackOverflow() {
+		double[] coords = randomSphericalPoints(50_000, 1.0);
+		QuickHull3D hull = new QuickHull3D();
+		assertDoesNotThrow(() -> hull.build(coords));
+		assertTrue(hull.check(NULL_OUT));
 	}
 
 	@Test

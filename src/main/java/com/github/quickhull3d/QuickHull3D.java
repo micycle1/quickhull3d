@@ -148,9 +148,9 @@ public class QuickHull3D {
 
 	private Vertex[] minVtxs = new Vertex[3];
 
-	protected Vector faces = new Vector(16);
+	protected Vector<Face> faces = new Vector<>(16);
 
-	protected Vector horizon = new Vector(16);
+	protected Vector<HalfEdge> horizon = new Vector<>(16);
 
 	private FaceList newFaces = new FaceList();
 
@@ -1242,9 +1242,7 @@ public class QuickHull3D {
 	 * @return true if the hull is valid
 	 * @see QuickHull3D#check(PrintStream)
 	 */
-	public boolean check(PrintStream ps, double tol)
-
-	{
+	public boolean check(PrintStream ps, double tol) {
 		// check to make sure all edges are fully connected
 		// and that the edges are convex
 		double dist;

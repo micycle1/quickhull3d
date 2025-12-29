@@ -11,11 +11,9 @@ package com.github.quickhull3d;
  */
 public class Face {
 
-	protected static final int DELETED = 3;
-
-	protected static final int NON_CONVEX = 2;
-
 	protected static final int VISIBLE = 1;
+	protected static final int NON_CONVEX = 2;
+	protected static final int DELETED = 3;
 
 	protected double area;
 
@@ -24,15 +22,12 @@ public class Face {
 	protected int mark = VISIBLE;
 
 	protected Face next;
-
 	protected int numVerts;
-
 	protected Vertex outside;
 
 	protected double planeOffset;
 
 	private Point3d centroid;
-
 	private Vector3d normal;
 
 	public Face() {
