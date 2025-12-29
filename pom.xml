@@ -8,8 +8,8 @@
 	</parent>
 	<groupId>com.github.quickhull3d</groupId>
 	<version>1.0.1-SNAPSHOT</version>
-	<packaging>jar</packaging>
 	<artifactId>quickhull3d</artifactId>
+	<packaging>jar</packaging>
 	<name>A Robust 3D Convex Hull Algorithm in Java</name>
 	<description>This is a 3D implementation of QuickHull for Java, based on the original paper by Barber, Dobkin, and Huhdanpaa and the C implementation known as qhull. The algorithm has O(n log(n)) complexity, works with double precision numbers, is fairly robust with respect to degenerate situations, and allows the merging of co-planar faces. </description>
 	<inceptionYear>2004</inceptionYear>
@@ -88,8 +88,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.1</version>
 				<configuration>
-					<source>1.7</source>
-					<target>1.7</target>
+					<source>1.8</source>
+					<target>1.8</target>
 				</configuration>
 			</plugin>
 			<plugin>
