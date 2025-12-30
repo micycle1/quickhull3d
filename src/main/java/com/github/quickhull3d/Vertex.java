@@ -47,7 +47,7 @@ class Vertex {
 		pnt = new Point3d(x, y, z);
 		index = idx;
 	}
-		
+
 	public final double x() {
 		return pnt.x;
 	}

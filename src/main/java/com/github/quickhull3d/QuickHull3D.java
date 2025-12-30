@@ -6,7 +6,9 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.StreamTokenizer;
 import java.nio.charset.Charset;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Vector;
 
 import org.slf4j.Logger;
@@ -283,7 +285,7 @@ public class QuickHull3D {
 	private HalfEdge findHalfEdge(Vertex tail, Vertex head) {
 		// brute force ... OK, since setHull is not used much
 		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
-			HalfEdge he = ((Face) it.next()).findEdge(tail, head);
+			HalfEdge he = it.next().findEdge(tail, head);
 			if (he != null) {
 				return he;
 			}
@@ -339,7 +341,7 @@ public class QuickHull3D {
 			}
 			ps.flush();
 			ps.close();
-			Vector<Integer> indexList = new Vector<Integer>(3);
+			Vector<Integer> indexList = new Vector<>(3);
 			stok.eolIsSignificant(true);
 			printQhullErrors(proc);
 
@@ -366,7 +368,7 @@ public class QuickHull3D {
 				faceIndices[i] = new int[indexList.size()];
 				int k = 0;
 				for (Iterator<Integer> it = indexList.iterator(); it.hasNext();) {
-					faceIndices[i][k++] = ((Integer) it.next()).intValue();
+					faceIndices[i][k++] = it.next().intValue();
 				}
 			}
 			setHull(coords, nump, faceIndices, numf);
@@ -471,7 +473,7 @@ public class QuickHull3D {
 		double minArea = 1000 * charLength * DOUBLE_PREC;
 		newFaces.clear();
 		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
-			Face face = (Face) it.next();
+			Face face = it.next();
 			if (face.mark == Face.VISIBLE) {
 				face.triangulate(newFaces, minArea);
 				// splitFace (face);
@@ -798,7 +800,7 @@ public class QuickHull3D {
 		int[][] allFaces = new int[faces.size()][];
 		int k = 0;
 		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
-			Face face = (Face) it.next();
+			Face face = it.next();
 			allFaces[k] = new int[face.numVertices()];
 			getFaceIndices(allFaces[k], face, indexFlags);
 			k++;
@@ -859,7 +861,7 @@ public class QuickHull3D {
 			ps.println("v " + pnt.x + " " + pnt.y + " " + pnt.z);
 		}
 		for (Iterator<Face> fi = faces.iterator(); fi.hasNext();) {
-			Face face = (Face) fi.next();
+			Face face = fi.next();
 			int[] indices = new int[face.numVertices()];
 			getFaceIndices(indices, face, indexFlags);
 
@@ -895,12 +897,14 @@ public class QuickHull3D {
 		Vertex vtxNext = unclaimed.first();
 		for (Vertex vtx = vtxNext; vtx != null; vtx = vtxNext) {
 			vtxNext = vtx.next;
-			
+
 			double bestDet = 0;   // we want most negative (most outside)
 			Face bestFace = null;
 
 			for (Face newFace = newFaces.first(); newFace != null; newFace = newFace.next) {
-			    if (newFace.mark != Face.VISIBLE) continue;
+			    if (newFace.mark != Face.VISIBLE) {
+					continue;
+				}
 
 			    double det = detToFace(newFace, vtx);
 			    if (det < bestDet) {          // more negative = farther outside
@@ -1050,7 +1054,7 @@ public class QuickHull3D {
 		HalfEdge hedgeSideBegin = null;
 
 		for (Iterator<HalfEdge> it = horizon.iterator(); it.hasNext();) {
-			HalfEdge horizonHe = (HalfEdge) it.next();
+			HalfEdge horizonHe = it.next();
 			HalfEdge hedgeSide = addAdjoiningFace(eyeVtx, horizonHe);
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("new face: " + hedgeSide.face.getVertexString());
@@ -1103,7 +1107,7 @@ public class QuickHull3D {
 		for (Face face = newFaces.first(); face != null; face = face.next) {
 			if (face.mark == Face.VISIBLE) {
 				while (doAdjacentMerge(face, NONCONVEX_WRT_LARGER_FACE)) {
-					;
+
 				}
 			}
 		}
@@ -1113,7 +1117,7 @@ public class QuickHull3D {
 			if (face.mark == Face.NON_CONVEX) {
 				face.mark = Face.VISIBLE;
 				while (doAdjacentMerge(face, NONCONVEX)) {
-					;
+
 				}
 			}
 		}
@@ -1151,7 +1155,7 @@ public class QuickHull3D {
 		// remove inactive faces and mark active vertices
 		numFaces = 0;
 		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
-			Face face = (Face) it.next();
+			Face face = it.next();
 			if (face.mark != Face.VISIBLE) {
 				it.remove();
 			} else {
@@ -1169,7 +1173,7 @@ public class QuickHull3D {
 			}
 		}
 	}
-	
+
 	private static boolean outsideDet(double det) {
 	    return det < 0;
 	}
@@ -1181,7 +1185,7 @@ public class QuickHull3D {
 	private static boolean isOutsideFace(Face f, Vertex v) {
 	    return outsideDet(detToFace(f, v));
 	}
-	
+
 	private static Vertex witnessForEdge(HalfEdge he) {
 	    // he is oriented CCW within he.face; choose a vertex after he.head in CCW order
 	    Vertex a = he.tail();
@@ -1249,7 +1253,7 @@ public class QuickHull3D {
 
 	protected boolean checkFaces(PrintStream ps) {
 		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
-			Face face = (Face) it.next();
+			Face face = it.next();
 			if (face.mark == Face.VISIBLE && !checkFaceConvexity(face, ps)) {
 				return false;
 			}
@@ -1298,7 +1302,7 @@ public class QuickHull3D {
 		// check point inclusion
 		for (int i = 0; i < numPoints; i++) {
 			for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
-				Face face = (Face) it.next();
+				Face face = it.next();
 				if (face.mark == Face.VISIBLE) {
 					Vertex v = pointBuffer[i];
 					double det = detToFace(face, v);

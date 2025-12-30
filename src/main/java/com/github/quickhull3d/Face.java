@@ -29,7 +29,7 @@ public class Face {
 
 	private Point3d centroid;
 	private Vector3d normal;
-	
+
 	Vertex pa, pb, pc; // CCW triple defining the face plane for exact predicates
 
 	public Face() {
@@ -472,7 +472,7 @@ public class Face {
 
 		return x * x + y * y + z * z;
 	}
-	
+
 	static double areaSquared(Vertex a, Vertex b, Vertex c) {
 	    double abx = b.pnt.x - a.pnt.x;
 	    double aby = b.pnt.y - a.pnt.y;
