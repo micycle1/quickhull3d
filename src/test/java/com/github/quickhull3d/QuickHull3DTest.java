@@ -469,29 +469,31 @@ class QuickHull3DTest {
 	}
 
 	@Test
-	@Disabled("Performance test; run manually when needed")
+	@Disabled("Performance test; run manually")
 	void timingTest() {
-		long t0, t1;
-		int n = 10;
-		QuickHull3D hull = new QuickHull3D();
+	    int n = 10;
+	    final int warmupSize = 10_000;
+	    final int warmupRuns = 2;
+	    final int cnt = 10;
 
-		for (int i = 0; i < 2; i++) {
-			double[] coords = randomSphericalPoints(10000, 1.0);
-			hull.build(coords);
-		}
+	    // Warm-up (JIT + class loading)
+	    double[] warmupCoords = randomSphericalPoints(warmupSize, 1.0);
+	    for (int i = 0; i < warmupRuns; i++) {
+	        new QuickHull3D().build(warmupCoords);
+	    }
 
-		int cnt = 10;
-		for (int i = 0; i < 4; i++) {
-			n *= 10;
-			double[] coords = randomSphericalPoints(n, 1.0);
+	    for (int i = 0; i < 4; i++) {
+	        n *= 10;
+	        double[] coords = randomSphericalPoints(n, 1.0);
 
-			t0 = System.currentTimeMillis();
-			for (int k = 0; k < cnt; k++) {
-				hull.build(coords);
-			}
-			t1 = System.currentTimeMillis();
+	        long t0 = System.nanoTime();
+	        for (int k = 0; k < cnt; k++) {
+	            new QuickHull3D().build(coords);
+	        }
+	        long t1 = System.nanoTime();
 
-			System.out.println(n + " points: " + (t1 - t0) / (double) cnt + " msec");
-		}
+	        double avgMs = (t1 - t0) / (double) cnt / 1_000_000.0;
+	        System.out.printf("%,d points: %.3f ms%n", n, avgMs);
+	    }
 	}
 }

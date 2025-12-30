@@ -282,7 +282,7 @@ public class QuickHull3D {
 
 	private HalfEdge findHalfEdge(Vertex tail, Vertex head) {
 		// brute force ... OK, since setHull is not used much
-		for (Iterator it = faces.iterator(); it.hasNext();) {
+		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 			HalfEdge he = ((Face) it.next()).findEdge(tail, head);
 			if (he != null) {
 				return he;
@@ -339,7 +339,7 @@ public class QuickHull3D {
 			}
 			ps.flush();
 			ps.close();
-			Vector indexList = new Vector(3);
+			Vector<Integer> indexList = new Vector<Integer>(3);
 			stok.eolIsSignificant(true);
 			printQhullErrors(proc);
 
@@ -365,7 +365,7 @@ public class QuickHull3D {
 				}
 				faceIndices[i] = new int[indexList.size()];
 				int k = 0;
-				for (Iterator it = indexList.iterator(); it.hasNext();) {
+				for (Iterator<Integer> it = indexList.iterator(); it.hasNext();) {
 					faceIndices[i][k++] = ((Integer) it.next()).intValue();
 				}
 			}
@@ -470,7 +470,7 @@ public class QuickHull3D {
 	public void triangulate() {
 		double minArea = 1000 * charLength * DOUBLE_PREC;
 		newFaces.clear();
-		for (Iterator it = faces.iterator(); it.hasNext();) {
+		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 			Face face = (Face) it.next();
 			if (face.mark == Face.VISIBLE) {
 				face.triangulate(newFaces, minArea);
@@ -797,7 +797,7 @@ public class QuickHull3D {
 	public int[][] getFaces(int indexFlags) {
 		int[][] allFaces = new int[faces.size()][];
 		int k = 0;
-		for (Iterator it = faces.iterator(); it.hasNext();) {
+		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 			Face face = (Face) it.next();
 			allFaces[k] = new int[face.numVertices()];
 			getFaceIndices(allFaces[k], face, indexFlags);
@@ -854,7 +854,7 @@ public class QuickHull3D {
 			Point3d pnt = pointBuffer[vertexPointIndices[i]].pnt;
 			ps.println("v " + pnt.x + " " + pnt.y + " " + pnt.z);
 		}
-		for (Iterator fi = faces.iterator(); fi.hasNext();) {
+		for (Iterator<Face> fi = faces.iterator(); fi.hasNext();) {
 			Face face = (Face) fi.next();
 			int[] indices = new int[face.numVertices()];
 			getFaceIndices(indices, face, indexFlags);
@@ -1006,7 +1006,7 @@ public class QuickHull3D {
 	    return false;
 	}
 
-	protected void calculateHorizon(Vertex eyeVtx, HalfEdge edge0, Face face, Vector horizon) {
+	protected void calculateHorizon(Vertex eyeVtx, HalfEdge edge0, Face face, Vector<HalfEdge> horizon) {
 	    deleteFacePoints(face, null);
 	    face.mark = Face.DELETED;
 
@@ -1039,13 +1039,13 @@ public class QuickHull3D {
 		return face.getEdge(0);
 	}
 
-	protected void addNewFaces(FaceList newFaces, Vertex eyeVtx, Vector horizon) {
+	protected void addNewFaces(FaceList newFaces, Vertex eyeVtx, Vector<HalfEdge> horizon) {
 		newFaces.clear();
 
 		HalfEdge hedgeSidePrev = null;
 		HalfEdge hedgeSideBegin = null;
 
-		for (Iterator it = horizon.iterator(); it.hasNext();) {
+		for (Iterator<HalfEdge> it = horizon.iterator(); it.hasNext();) {
 			HalfEdge horizonHe = (HalfEdge) it.next();
 			HalfEdge hedgeSide = addAdjoiningFace(eyeVtx, horizonHe);
 			if (LOG.isDebugEnabled()) {
@@ -1146,7 +1146,7 @@ public class QuickHull3D {
 		}
 		// remove inactive faces and mark active vertices
 		numFaces = 0;
-		for (Iterator it = faces.iterator(); it.hasNext();) {
+		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 			Face face = (Face) it.next();
 			if (face.mark != Face.VISIBLE) {
 				it.remove();
@@ -1293,7 +1293,6 @@ public class QuickHull3D {
 
 		// check point inclusion
 		for (int i = 0; i < numPoints; i++) {
-			Point3d pnt = pointBuffer[i].pnt;
 			for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 				Face face = (Face) it.next();
 				if (face.mark == Face.VISIBLE) {

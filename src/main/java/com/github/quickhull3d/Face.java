@@ -530,7 +530,7 @@ public class Face {
 			he = he.next;
 		} while (he != he0);
 		if (numv != numVerts) {
-			throw new InternalErrorException("face " + getVertexString() + " numVerts=" + numVerts + " should be " + numv);
+			throw new IllegalStateException("face " + getVertexString() + " numVerts=" + numVerts + " should be " + numv);
 		}
 		updatePlaneTriple();
 	}
@@ -594,25 +594,25 @@ public class Face {
 		int numv = 0;
 
 		if (numVerts < 3) {
-			throw new InternalErrorException("degenerate face: " + getVertexString());
+			throw new IllegalStateException("degenerate face: " + getVertexString());
 		}
 		do {
 			HalfEdge hedgeOpp = hedge.getOpposite();
 			if (hedgeOpp == null) {
-				throw new InternalErrorException("face " + getVertexString() + ": " + "unreflected half edge " + hedge.getVertexString());
+				throw new IllegalStateException("face " + getVertexString() + ": " + "unreflected half edge " + hedge.getVertexString());
 			} else if (hedgeOpp.getOpposite() != hedge) {
-				throw new InternalErrorException("face " + getVertexString() + ": " + "opposite half edge " + hedgeOpp.getVertexString() + " has opposite "
+				throw new IllegalStateException("face " + getVertexString() + ": " + "opposite half edge " + hedgeOpp.getVertexString() + " has opposite "
 						+ hedgeOpp.getOpposite().getVertexString());
 			}
 			if (hedgeOpp.head() != hedge.tail() || hedge.head() != hedgeOpp.tail()) {
-				throw new InternalErrorException(
+				throw new IllegalStateException(
 						"face " + getVertexString() + ": " + "half edge " + hedge.getVertexString() + " reflected by " + hedgeOpp.getVertexString());
 			}
 			Face oppFace = hedgeOpp.face;
 			if (oppFace == null) {
-				throw new InternalErrorException("face " + getVertexString() + ": " + "no face on half edge " + hedgeOpp.getVertexString());
+				throw new IllegalStateException("face " + getVertexString() + ": " + "no face on half edge " + hedgeOpp.getVertexString());
 			} else if (oppFace.mark == DELETED) {
-				throw new InternalErrorException("face " + getVertexString() + ": " + "opposite face " + oppFace.getVertexString() + " not on hull");
+				throw new IllegalStateException("face " + getVertexString() + ": " + "opposite face " + oppFace.getVertexString() + " not on hull");
 			}
 			double d = Math.abs(distanceToPlane(hedge.head().pnt));
 			if (d > maxd) {
@@ -623,7 +623,7 @@ public class Face {
 		} while (hedge != he0);
 
 		if (numv != numVerts) {
-			throw new InternalErrorException("face " + getVertexString() + " numVerts=" + numVerts + " should be " + numv);
+			throw new IllegalStateException("face " + getVertexString() + " numVerts=" + numVerts + " should be " + numv);
 		}
 
 	}
