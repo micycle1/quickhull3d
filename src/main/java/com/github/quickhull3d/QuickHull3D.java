@@ -806,6 +806,10 @@ public class QuickHull3D {
 		return allFaces;
 	}
 
+	public List<Face> getFaceObjects() {
+		  return Collections.unmodifiableList(faces);
+		}
+
 	/**
 	 * Prints the vertices and faces of this hull to the stream ps.
 	 * <p>
