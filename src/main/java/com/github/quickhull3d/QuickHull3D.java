@@ -682,17 +682,17 @@ public class QuickHull3D {
 				continue;
 			}
 
-			maxDist = tolerance;
-			Face maxFace = null;
+			double bestDet = 0;
+			Face bestFace = null;
 			for (int k = 0; k < 4; k++) {
-				double dist = tris[k].distanceToPlane(v.pnt);
-				if (dist > maxDist) {
-					maxFace = tris[k];
-					maxDist = dist;
-				}
+			    double det = detToFace(tris[k], v);
+			    if (det < bestDet) {
+			        bestDet = det;
+			        bestFace = tris[k];
+			    }
 			}
-			if (maxFace != null) {
-				addPointToFace(v, maxFace);
+			if (bestFace != null) {
+			    addPointToFace(v, bestFace);
 			}
 		}
 	}
@@ -891,27 +891,27 @@ public class QuickHull3D {
 		Vertex vtxNext = unclaimed.first();
 		for (Vertex vtx = vtxNext; vtx != null; vtx = vtxNext) {
 			vtxNext = vtx.next;
+			
+			double bestDet = 0;   // we want most negative (most outside)
+			Face bestFace = null;
 
-			double maxDist = tolerance;
-			Face maxFace = null;
 			for (Face newFace = newFaces.first(); newFace != null; newFace = newFace.next) {
-				if (newFace.mark == Face.VISIBLE) {
-					double dist = newFace.distanceToPlane(vtx.pnt);
-					if (dist > maxDist) {
-						maxDist = dist;
-						maxFace = newFace;
-					}
-					if (maxDist > 1000 * tolerance) {
-						break;
-					}
-				}
+			    if (newFace.mark != Face.VISIBLE) continue;
+
+			    double det = detToFace(newFace, vtx);
+			    if (det < bestDet) {          // more negative = farther outside
+			        bestDet = det;
+			        bestFace = newFace;
+			    }
 			}
-			if (maxFace != null) {
-				addPointToFace(vtx, maxFace);
-				if (LOG.isDebugEnabled() && vtx.index == findIndex) {
-					LOG.debug(findIndex + " CLAIMED BY " + maxFace.getVertexString());
-				}
+
+			if (bestFace != null) {
+			    addPointToFace(vtx, bestFace);
+			    if (LOG.isDebugEnabled() && vtx.index == findIndex) {
+			    	LOG.debug(findIndex + " CLAIMED BY " + bestFace.getVertexString());
+			    }
 			} else {
+			    // discarded
 				if (LOG.isDebugEnabled() && vtx.index == findIndex) {
 					LOG.debug(findIndex + " DISCARDED");
 				}
@@ -928,11 +928,11 @@ public class QuickHull3D {
 				Vertex vtxNext = faceVtxs;
 				for (Vertex vtx = vtxNext; vtx != null; vtx = vtxNext) {
 					vtxNext = vtx.next;
-					double dist = absorbingFace.distanceToPlane(vtx.pnt);
-					if (dist > tolerance) {
-						addPointToFace(vtx, absorbingFace);
+					double det = detToFace(absorbingFace, vtx);
+					if (det < 0) { // outside
+					    addPointToFace(vtx, absorbingFace);
 					} else {
-						unclaimed.add(vtx);
+					    unclaimed.add(vtx);
 					}
 				}
 			}
@@ -948,88 +948,88 @@ public class QuickHull3D {
 	}
 
 	private boolean doAdjacentMerge(Face face, int mergeType) {
-		HalfEdge hedge = face.he0;
+	    HalfEdge he = face.he0;
+	    boolean convex = true;
 
-		boolean convex = true;
-		do {
-			Face oppFace = hedge.oppositeFace();
-			boolean merge = false;
+	    do {
+	        Face oppFace = he.oppositeFace();
+	        boolean merge = false;
 
-			if (mergeType == NONCONVEX) { // then merge faces if they are
-											// definitively non-convex
-				if (oppFaceDistance(hedge) > -tolerance || oppFaceDistance(hedge.opposite) > -tolerance) {
-					merge = true;
-				}
-			} else {
-				// mergeType == NONCONVEX_WRT_LARGER_FACE
-				// merge faces if they are parallel or non-convex
-				// wrt to the larger face; otherwise, just mark
-				// the face non-convex for the second pass.
-				if (face.area > oppFace.area) {
-					if (oppFaceDistance(hedge) > -tolerance) {
-						merge = true;
-					} else if (oppFaceDistance(hedge.opposite) > -tolerance) {
-						convex = false;
-					}
-				} else {
-					if (oppFaceDistance(hedge.opposite) > -tolerance) {
-						merge = true;
-					} else if (oppFaceDistance(hedge) > -tolerance) {
-						convex = false;
-					}
-				}
-			}
+	        Vertex a = he.tail();
+	        Vertex b = he.head();
+	        Vertex c = witnessForEdge(he);            // from 'face'
+	        Vertex d = witnessForEdge(he.opposite);   // from 'oppFace'
 
-			if (merge) {
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("  merging " + face.getVertexString() + "  and  " + oppFace.getVertexString());
-				}
+	        // d relative to face plane through (a,b,c)
+	        double sFace = ExactJavaPredicates.orient(a, b, c, d);
+	        // c relative to oppFace plane through (b,a,d) (note reversed edge in opposite face)
+	        double sOpp  = ExactJavaPredicates.orient(b, a, d, c);
 
-				int numd = face.mergeAdjacentFace(hedge, discardedFaces);
-				for (int i = 0; i < numd; i++) {
-					deleteFacePoints(discardedFaces[i], face);
-				}
-				if (LOG.isDebugEnabled()) {
-					LOG.debug("  result: " + face.getVertexString());
-				}
-				return true;
-			}
-			hedge = hedge.next;
-		} while (hedge != face.he0);
-		if (!convex) {
-			face.mark = Face.NON_CONVEX;
-		}
-		return false;
+	        // With your orient3d sign: "outside/above" is negative => nonconvex/coplanar if <= 0
+	        boolean faceSeesOppNonconvex = (sFace <= 0);
+	        boolean oppSeesFaceNonconvex = (sOpp  <= 0);
+
+	        if (mergeType == NONCONVEX) {
+	            if (faceSeesOppNonconvex || oppSeesFaceNonconvex) {
+	                merge = true;
+	            }
+	        } else { // NONCONVEX_WRT_LARGER_FACE
+	            if (face.area > oppFace.area) {
+	                if (faceSeesOppNonconvex) {
+	                    merge = true;
+	                } else if (oppSeesFaceNonconvex) {
+	                    convex = false;
+	                }
+	            } else {
+	                if (oppSeesFaceNonconvex) {
+	                    merge = true;
+	                } else if (faceSeesOppNonconvex) {
+	                    convex = false;
+	                }
+	            }
+	        }
+
+	        if (merge) {
+	            int numd = face.mergeAdjacentFace(he, discardedFaces);
+	            for (int i = 0; i < numd; i++) {
+	                deleteFacePoints(discardedFaces[i], face);
+	            }
+	            return true;
+	        }
+
+	        he = he.next;
+	    } while (he != face.he0);
+
+	    if (!convex) {
+	        face.mark = Face.NON_CONVEX;
+	    }
+	    return false;
 	}
 
-	protected void calculateHorizon(Point3d eyePnt, HalfEdge edge0, Face face, Vector horizon) {
-		// oldFaces.add (face);
-		deleteFacePoints(face, null);
-		face.mark = Face.DELETED;
-		if (LOG.isDebugEnabled()) {
-			LOG.debug("  visiting face " + face.getVertexString());
-		}
-		HalfEdge edge;
-		if (edge0 == null) {
-			edge0 = face.getEdge(0);
-			edge = edge0;
-		} else {
-			edge = edge0.getNext();
-		}
-		do {
-			Face oppFace = edge.oppositeFace();
-			if (oppFace.mark == Face.VISIBLE) {
-				if (oppFace.distanceToPlane(eyePnt) > tolerance) {
-					calculateHorizon(eyePnt, edge.getOpposite(), oppFace, horizon);
-				} else {
-					horizon.add(edge);
-					if (LOG.isDebugEnabled()) {
-						LOG.debug("  adding horizon edge " + edge.getVertexString());
-					}
-				}
-			}
-			edge = edge.getNext();
-		} while (edge != edge0);
+	protected void calculateHorizon(Vertex eyeVtx, HalfEdge edge0, Face face, Vector horizon) {
+	    deleteFacePoints(face, null);
+	    face.mark = Face.DELETED;
+
+	    HalfEdge edge;
+	    if (edge0 == null) {
+	        edge0 = face.getEdge(0);
+	        edge = edge0;
+	    } else {
+	        edge = edge0.getNext();
+	    }
+
+	    do {
+	        Face oppFace = edge.oppositeFace();
+	        if (oppFace.mark == Face.VISIBLE) {
+	            // REPLACE: oppFace.distanceToPlane(eyePnt) > tolerance
+	            if (isOutsideFace(oppFace, eyeVtx)) {
+	                calculateHorizon(eyeVtx, edge.getOpposite(), oppFace, horizon);
+	            } else {
+	                horizon.add(edge);
+	            }
+	        }
+	        edge = edge.getNext();
+	    } while (edge != edge0);
 	}
 
 	private HalfEdge addAdjoiningFace(Vertex eyeVtx, HalfEdge he) {
@@ -1066,11 +1066,11 @@ public class QuickHull3D {
 		if (!claimed.isEmpty()) {
 			Face eyeFace = claimed.first().face;
 			Vertex eyeVtx = null;
-			double maxDist = 0;
+			double bestDet = 0;
 			for (Vertex vtx = eyeFace.outside; vtx != null && vtx.face == eyeFace; vtx = vtx.next) {
-				double dist = eyeFace.distanceToPlane(vtx.pnt);
-				if (dist > maxDist) {
-					maxDist = dist;
+				double det = detToFace(eyeFace, vtx);
+				if (det < bestDet) {
+					bestDet = det;
 					eyeVtx = vtx;
 				}
 			}
@@ -1089,7 +1089,7 @@ public class QuickHull3D {
 			LOG.debug(" which is " + eyeVtx.face.distanceToPlane(eyeVtx.pnt) + " above face " + eyeVtx.face.getVertexString());
 		}
 		removePointFromFace(eyeVtx, eyeVtx.face);
-		calculateHorizon(eyeVtx.pnt, null, eyeVtx.face, horizon);
+		calculateHorizon(eyeVtx, null, eyeVtx.face, horizon);
 		newFaces.clear();
 		addNewFaces(newFaces, eyeVtx, horizon);
 
@@ -1165,48 +1165,92 @@ public class QuickHull3D {
 			}
 		}
 	}
+	
+	private static boolean outsideDet(double det) {
+	    return det < 0;
+	}
 
-	protected boolean checkFaceConvexity(Face face, double tol, PrintStream ps) {
-		double dist;
+	private static double detToFace(Face f, Vertex v) {
+	    return ExactJavaPredicates.orient(f.pa, f.pb, f.pc, v);
+	}
+
+	private static boolean isOutsideFace(Face f, Vertex v) {
+	    return outsideDet(detToFace(f, v));
+	}
+	
+	private static Vertex witnessForEdge(HalfEdge he) {
+	    // he is oriented CCW within he.face; choose a vertex after he.head in CCW order
+	    Vertex a = he.tail();
+	    Vertex b = he.head();
+
+	    Vertex best = null;
+	    double bestArea = 0;
+
+	    HalfEdge e = he.next;
+	    while (e != he) {
+	        Vertex c = e.head();
+	        if (c != a && c != b) {
+	            double asq = Face.areaSquared(a, b, c); // if you keep it private, duplicate code here
+	            if (asq > bestArea) {
+	                bestArea = asq;
+	                best = c;
+	            }
+	        }
+	        e = e.next;
+	    }
+	    return (best != null ? best : he.next.head());
+	}
+
+	protected boolean checkFaceConvexity(Face face, PrintStream ps) {
 		HalfEdge he = face.he0;
 		do {
 			face.checkConsistency();
-			// make sure edge is convex
-			dist = oppFaceDistance(he);
-			if (dist > tol) {
+
+			// Exact convexity across shared edge using witness vertices
+			Vertex a = he.tail();
+			Vertex b = he.head();
+			Vertex c = witnessForEdge(he);            // from this face
+			Vertex d = witnessForEdge(he.opposite);   // from opposite face
+
+			// With your orient3d convention: outside is negative.
+			// For a convex hull, the opposite face's witness must be inside or coplanar => det >= 0.
+			double det1 = ExactJavaPredicates.orient(a, b, c, d);
+			if (det1 < 0) {
 				if (ps != null) {
-					ps.println("Edge " + he.getVertexString() + " non-convex by " + dist);
+					ps.println("Edge " + he.getVertexString() + " non-convex (orient=" + det1 + ")");
 				}
 				return false;
 			}
-			dist = oppFaceDistance(he.opposite);
-			if (dist > tol) {
+
+			double det2 = ExactJavaPredicates.orient(b, a, d, c);
+			if (det2 < 0) {
 				if (ps != null) {
-					ps.println("Opposite edge " + he.opposite.getVertexString() + " non-convex by " + dist);
+					ps.println("Opposite edge " + he.opposite.getVertexString() + " non-convex (orient=" + det2 + ")");
 				}
 				return false;
 			}
+
 			if (he.next.oppositeFace() == he.oppositeFace()) {
 				if (ps != null) {
 					ps.println("Redundant vertex " + he.head().index + " in face " + face.getVertexString());
 				}
 				return false;
 			}
+
 			he = he.next;
 		} while (he != face.he0);
+
 		return true;
 	}
 
-	protected boolean checkFaces(double tol, PrintStream ps) {
-		// check edge convexity
-		boolean convex = true;
-		for (Iterator it = faces.iterator(); it.hasNext();) {
+	protected boolean checkFaces(PrintStream ps) {
+		for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 			Face face = (Face) it.next();
-			if (face.mark == Face.VISIBLE && !checkFaceConvexity(face, tol, ps)) {
-				convex = false;
+			if (face.mark == Face.VISIBLE && !checkFaceConvexity(face, ps)) {
+				return false;
 			}
 		}
-		return convex;
+		return true;
 	}
 
 	/**
@@ -1243,27 +1287,19 @@ public class QuickHull3D {
 	 * @see QuickHull3D#check(PrintStream)
 	 */
 	public boolean check(PrintStream ps, double tol) {
-		// check to make sure all edges are fully connected
-		// and that the edges are convex
-		double dist;
-		double pointTol = 10 * tol;
-
-		if (!checkFaces(tolerance, ps)) {
+		if (!checkFaces(ps)) {
 			return false;
 		}
 
 		// check point inclusion
-
 		for (int i = 0; i < numPoints; i++) {
 			Point3d pnt = pointBuffer[i].pnt;
-			for (Iterator it = faces.iterator(); it.hasNext();) {
+			for (Iterator<Face> it = faces.iterator(); it.hasNext();) {
 				Face face = (Face) it.next();
 				if (face.mark == Face.VISIBLE) {
-					dist = face.distanceToPlane(pnt);
-					if (dist > pointTol) {
-						if (ps != null) {
-							ps.println("Point " + i + " " + dist + " above face " + face.getVertexString());
-						}
+					Vertex v = pointBuffer[i];
+					double det = detToFace(face, v);
+					if (det < 0) {
 						return false;
 					}
 				}

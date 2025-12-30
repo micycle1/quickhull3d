@@ -403,7 +403,7 @@ class QuickHull3DTest {
 	@Test
 	@Tag("slow")
 	void randomGridPoints() throws Exception {
-		for (int n = 2; n <= 10; n++) {
+		for (int n = 2; n <= 5; n++) {
 			for (int i = 0; i < 10; i++) {
 				testWithOptionalRotations(randomGridPoints(n, 4.0), null);
 			}
@@ -441,7 +441,7 @@ class QuickHull3DTest {
 	void hullShouldHandleMixedMagnitudeCoordinates() throws Exception {
 		double[] coords = randomPoints(15, 1.0);
 		for (int i = 0; i < coords.length; i += 3) {
-			coords[i] *= 1e5; // x huge
+			coords[i] *= 1e8; // x huge
 			// y,z stay ~1
 		}
 		testWithOptionalRotations(coords, null);

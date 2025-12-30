@@ -83,7 +83,7 @@ public class TestConvexHull {
 			boolean found = false;
 			for (Point3d point3d : expected) {
 				double diff = Math.abs(pnt.x - point3d.x) + Math.abs(pnt.y - point3d.y) + Math.abs(pnt.y - point3d.y);
-				if (diff < 0.0000001) {
+				if (diff < 1e-8) {
 					found = true;
 				}
 			}

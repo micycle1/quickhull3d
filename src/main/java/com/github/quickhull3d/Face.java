@@ -29,6 +29,8 @@ public class Face {
 
 	private Point3d centroid;
 	private Vector3d normal;
+	
+	Vertex pa, pb, pc; // CCW triple defining the face plane for exact predicates
 
 	public Face() {
 		normal = new Vector3d();
@@ -89,84 +91,171 @@ public class Face {
 	}
 
 	public void computeCentroid(Point3d centroid) {
-		centroid.setZero();
-		HalfEdge he = he0;
-		do {
-			centroid.add(he.head().pnt);
-			he = he.next;
-		} while (he != he0);
-		centroid.scale(1 / (double) numVerts);
+	    HalfEdge he = he0;
+
+	    // Reference point to reduce cancellation (important when coords are huge)
+	    Point3d pref = he.head().pnt;
+
+	    double sx = 0, sy = 0, sz = 0;     // sum of deltas
+	    double cx = 0, cy = 0, cz = 0;     // Kahan compensation
+	    int n = 0;
+
+	    do {
+	        Point3d p = he.head().pnt;
+
+	        double dx = p.x - pref.x;
+	        double dy = p.y - pref.y;
+	        double dz = p.z - pref.z;
+
+	        // Kahan summation for dx
+	        double yx = dx - cx;
+	        double tx = sx + yx;
+	        cx = (tx - sx) - yx;
+	        sx = tx;
+
+	        double yy = dy - cy;
+	        double ty = sy + yy;
+	        cy = (ty - sy) - yy;
+	        sy = ty;
+
+	        double yz = dz - cz;
+	        double tz = sz + yz;
+	        cz = (tz - sz) - yz;
+	        sz = tz;
+
+	        n++;
+	        he = he.next;
+	    } while (he != he0);
+
+	    numVerts = n; // keep consistent
+
+	    double inv = 1.0 / n;
+	    centroid.x = pref.x + sx * inv;
+	    centroid.y = pref.y + sy * inv;
+	    centroid.z = pref.z + sz * inv;
 	}
 
 	public void computeNormal(Vector3d normal) {
-		HalfEdge he1 = he0.next;
-		HalfEdge he2 = he1.next;
+	    // Use a local origin to reduce cancellation
+	    Point3d p0 = he0.head().pnt;
 
-		Point3d p0 = he0.head().pnt;
-		Point3d p2 = he1.head().pnt;
+	    double nx = 0, ny = 0, nz = 0;
+	    double cx = 0, cy = 0, cz = 0; // Kahan compensation for nx,ny,nz
 
-		double d2x = p2.x - p0.x;
-		double d2y = p2.y - p0.y;
-		double d2z = p2.z - p0.z;
+	    int n = 0;
+	    HalfEdge he = he0;
+	    do {
+	        n++;
+	        he = he.next;
+	    } while (he != he0);
+	    numVerts = n;
 
-		normal.setZero();
+	    if (n < 3) {
+	        normal.setZero();
+	        area = 0;
+	        return;
+	    }
 
-		numVerts = 2;
+	    // Sum cross((pi - p0), (p(i+1) - p0)) for i around the polygon
+	    HalfEdge e = he0;
+	    do {
+	        Point3d pi = e.head().pnt;
+	        Point3d pj = e.next.head().pnt;
 
-		while (he2 != he0) {
-			double d1x = d2x;
-			double d1y = d2y;
-			double d1z = d2z;
+	        double aix = pi.x - p0.x;
+	        double aiy = pi.y - p0.y;
+	        double aiz = pi.z - p0.z;
 
-			p2 = he2.head().pnt;
-			d2x = p2.x - p0.x;
-			d2y = p2.y - p0.y;
-			d2z = p2.z - p0.z;
+	        double bix = pj.x - p0.x;
+	        double biy = pj.y - p0.y;
+	        double biz = pj.z - p0.z;
 
-			normal.x += d1y * d2z - d1z * d2y;
-			normal.y += d1z * d2x - d1x * d2z;
-			normal.z += d1x * d2y - d1y * d2x;
+	        // cross(a,b) using fma where it helps rounding:
+	        double cxp = Math.fma(aiy, biz, -aiz * biy);
+	        double cyp = Math.fma(aiz, bix, -aix * biz);
+	        double czp = Math.fma(aix, biy, -aiy * bix);
 
-			he1 = he2;
-			he2 = he2.next;
-			numVerts++;
-		}
-		area = normal.norm();
-		normal.scale(1 / area);
+	        // Kahan accumulate into (nx,ny,nz)
+	        double yx = cxp - cx;
+	        double tx = nx + yx;
+	        cx = (tx - nx) - yx;
+	        nx = tx;
+
+	        double yy = cyp - cy;
+	        double ty = ny + yy;
+	        cy = (ty - ny) - yy;
+	        ny = ty;
+
+	        double yz = czp - cz;
+	        double tz = nz + yz;
+	        cz = (tz - nz) - yz;
+	        nz = tz;
+
+	        e = e.next;
+	    } while (e != he0);
+
+	    normal.x = nx;
+	    normal.y = ny;
+	    normal.z = nz;
+
+	    area = normal.norm();
+	    if (!(area > 0) || !Double.isFinite(area)) { // handles 0, NaN, inf
+	        normal.setZero();
+	        area = 0;
+	        return;
+	    }
+	    normal.scale(1.0 / area);
 	}
 
 	public void computeNormal(Vector3d normal, double minArea) {
-		computeNormal(normal);
+	    computeNormal(normal);
 
-		if (area < minArea) {
-			// make the normal more robust by removing
-			// components parallel to the longest edge
+	    if (!(area > 0) || !Double.isFinite(area)) {
+	        return;
+	    }
 
-			HalfEdge hedgeMax = null;
-			double lenSqrMax = 0;
-			HalfEdge hedge = he0;
-			do {
-				double lenSqr = hedge.lengthSquared();
-				if (lenSqr > lenSqrMax) {
-					hedgeMax = hedge;
-					lenSqrMax = lenSqr;
-				}
-				hedge = hedge.next;
-			} while (hedge != he0);
+	    if (area < minArea) {
+	        HalfEdge hedgeMax = null;
+	        double lenSqrMax = 0;
 
-			Point3d p2 = hedgeMax.head().pnt;
-			Point3d p1 = hedgeMax.tail().pnt;
-			double lenMax = Math.sqrt(lenSqrMax);
-			double ux = (p2.x - p1.x) / lenMax;
-			double uy = (p2.y - p1.y) / lenMax;
-			double uz = (p2.z - p1.z) / lenMax;
-			double dot = normal.x * ux + normal.y * uy + normal.z * uz;
-			normal.x -= dot * ux;
-			normal.y -= dot * uy;
-			normal.z -= dot * uz;
+	        HalfEdge hedge = he0;
+	        do {
+	            double lenSqr = hedge.lengthSquared();
+	            if (lenSqr > lenSqrMax) {
+	                hedgeMax = hedge;
+	                lenSqrMax = lenSqr;
+	            }
+	            hedge = hedge.next;
+	        } while (hedge != he0);
 
-			normal.normalize();
-		}
+	        if (!(lenSqrMax > 0) || hedgeMax == null) {
+	            return;
+	        }
+
+	        Point3d p2 = hedgeMax.head().pnt;
+	        Point3d p1 = hedgeMax.tail().pnt;
+
+	        double lenMax = Math.sqrt(lenSqrMax);
+	        double ux = (p2.x - p1.x) / lenMax;
+	        double uy = (p2.y - p1.y) / lenMax;
+	        double uz = (p2.z - p1.z) / lenMax;
+
+	        double dot = Math.fma(normal.x, ux, Math.fma(normal.y, uy, normal.z * uz));
+
+	        double nx = normal.x - dot * ux;
+	        double ny = normal.y - dot * uy;
+	        double nz = normal.z - dot * uz;
+
+	        double n2 = nx * nx + ny * ny + nz * nz;
+	        if (!(n2 > 0) || !Double.isFinite(n2)) {
+	            return;
+	        }
+
+	        double inv = 1.0 / Math.sqrt(n2);
+	        normal.x = nx * inv;
+	        normal.y = ny * inv;
+	        normal.z = nz * inv;
+	    }
 	}
 
 	/**
@@ -383,6 +472,52 @@ public class Face {
 
 		return x * x + y * y + z * z;
 	}
+	
+	static double areaSquared(Vertex a, Vertex b, Vertex c) {
+	    double abx = b.pnt.x - a.pnt.x;
+	    double aby = b.pnt.y - a.pnt.y;
+	    double abz = b.pnt.z - a.pnt.z;
+
+	    double acx = c.pnt.x - a.pnt.x;
+	    double acy = c.pnt.y - a.pnt.y;
+	    double acz = c.pnt.z - a.pnt.z;
+
+	    double cx = aby * acz - abz * acy;
+	    double cy = abz * acx - abx * acz;
+	    double cz = abx * acy - aby * acx;
+	    return cx * cx + cy * cy + cz * cz;
+	}
+
+	/** Choose a stable CCW plane triple from this face's vertices. */
+	void updatePlaneTriple() {
+	    Vertex a = he0.head();
+	    Vertex b = he0.next.head();
+
+	    Vertex best = null;
+	    double bestArea = 0;
+
+	    HalfEdge he = he0.next.next;
+	    while (he != he0) {
+	        Vertex c = he.head();
+	        if (c != a && c != b) {
+	            double asq = areaSquared(a, b, c);
+	            if (asq > bestArea) {
+	                bestArea = asq;
+	                best = c;
+	            }
+	        }
+	        he = he.next;
+	    }
+
+	    // Fallback (degenerate polygon): just take the next vertex
+	    if (best == null) {
+	        best = he0.next.next.head();
+	    }
+
+	    pa = a;
+	    pb = b;
+	    pc = best;
+	}
 
 	private void computeNormalAndCentroid() {
 		computeNormal(normal);
@@ -397,12 +532,14 @@ public class Face {
 		if (numv != numVerts) {
 			throw new InternalErrorException("face " + getVertexString() + " numVerts=" + numVerts + " should be " + numv);
 		}
+		updatePlaneTriple();
 	}
 
 	private void computeNormalAndCentroid(double minArea) {
 		computeNormal(normal, minArea);
 		computeCentroid(centroid);
 		planeOffset = normal.dot(centroid);
+		updatePlaneTriple();
 	}
 
 	private Face connectHalfEdges(HalfEdge hedgePrev, HalfEdge hedge) {
