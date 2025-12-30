@@ -1,3 +1,5 @@
+[![](https://jitpack.io/v/micycle1/quickhull3d.svg)](https://jitpack.io/#micycle1/quickhull3d)
+
 quickhull3d - A Robust 3D Convex Hull Algorithm in Java
 ===========
 
