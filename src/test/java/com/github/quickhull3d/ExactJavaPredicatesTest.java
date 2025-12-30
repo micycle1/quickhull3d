@@ -1,6 +1,5 @@
 package com.github.quickhull3d;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -11,8 +10,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
-
-import com.github.quickhull3d.ExactJavaPredicates.SphereConfig;
 
 public class ExactJavaPredicatesTest {
 
