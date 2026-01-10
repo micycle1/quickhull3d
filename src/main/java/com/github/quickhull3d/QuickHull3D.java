@@ -1178,8 +1178,28 @@ public class QuickHull3D {
 	    return det < 0;
 	}
 
+	private static final double EPS = Math.ulp(1.0) * 0.5; // 2^-53
+
 	private static double detToFace(Face f, Vertex v) {
-	    return ExactJavaPredicates.orient(f.pa, f.pb, f.pc, v);
+		// fast: dot(n, v-a)
+		double dx = v.pnt.x - f.pAx;
+		double dy = v.pnt.y - f.pAy;
+		double dz = v.pnt.z - f.pAz;
+
+		double det = Math.fma(f.pNx, dx, Math.fma(f.pNy, dy, f.pNz * dz));
+
+		double adx = Math.abs(dx), ady = Math.abs(dy), adz = Math.abs(dz);
+
+		// dot rounding + (cross rounding propagated through dot)
+		double errDot = 16 * EPS * (f.pAbsNx * adx + f.pAbsNy * ady + f.pAbsNz * adz);
+		double errCross = 64 * EPS * (f.pNxTerm * adx + f.pNyTerm * ady + f.pNzTerm * adz);
+
+		double err = errDot + errCross;
+
+		if (det > err || det < -err) {
+			return det;
+		}
+		return ExactJavaPredicates.orient(f.pa, f.pb, f.pc, v);
 	}
 
 	private static boolean isOutsideFace(Face f, Vertex v) {
@@ -1305,7 +1325,7 @@ public class QuickHull3D {
 				Face face = it.next();
 				if (face.mark == Face.VISIBLE) {
 					Vertex v = pointBuffer[i];
-					double det = detToFace(face, v);
+					double det = ExactJavaPredicates.orient(face.pa, face.pb, face.pc, v);
 					if (det < 0) {
 						return false;
 					}
