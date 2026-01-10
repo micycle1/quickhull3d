@@ -63,13 +63,6 @@
 		<maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
 		<maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
 		<maven-source-plugin.version>3.3.1</maven-source-plugin.version>
-		<maven-site-plugin.version>3.20.0</maven-site-plugin.version>
-		<maven-project-info-reports-plugin.version>3.7.0</maven-project-info-reports-plugin.version>
-		<maven-checkstyle-plugin.version>3.5.0</maven-checkstyle-plugin.version>
-		<maven-pmd-plugin.version>3.25.0</maven-pmd-plugin.version>
-		<maven-jxr-plugin.version>3.5.0</maven-jxr-plugin.version>
-		<spotbugs-maven-plugin.version>4.8.6.4</spotbugs-maven-plugin.version>
-		<fmt-maven-plugin.version>2.24</fmt-maven-plugin.version>
 	</properties>
 
 	<dependencies>

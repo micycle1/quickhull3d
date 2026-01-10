@@ -27,7 +27,7 @@ public class PowerDiagram2D {
 		}
 		QuickHull3D hull = new QuickHull3D();
 		hull.build(lifted);
-		hull.triangulate();
+//		hull.triangulate();
 
 		// Mapping: hull-vertex-index -> input-site-index
 		int[] hullToSite = hull.getVertexPointIndices();

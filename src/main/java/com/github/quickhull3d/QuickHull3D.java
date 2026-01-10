@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.StreamTokenizer;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -150,9 +151,9 @@ public class QuickHull3D {
 
 	private Vertex[] minVtxs = new Vertex[3];
 
-	protected Vector<Face> faces = new Vector<>(16);
+	protected List<Face> faces = new ArrayList<>(16);
 
-	protected Vector<HalfEdge> horizon = new Vector<>(16);
+	protected List<HalfEdge> horizon = new ArrayList<>(16);
 
 	private FaceList newFaces = new FaceList();
 
@@ -1014,7 +1015,7 @@ public class QuickHull3D {
 	    return false;
 	}
 
-	protected void calculateHorizon(Vertex eyeVtx, HalfEdge edge0, Face face, Vector<HalfEdge> horizon) {
+	protected void calculateHorizon(Vertex eyeVtx, HalfEdge edge0, Face face, List<HalfEdge> horizon) {
 	    deleteFacePoints(face, null);
 	    face.mark = Face.DELETED;
 
@@ -1029,7 +1030,6 @@ public class QuickHull3D {
 	    do {
 	        Face oppFace = edge.oppositeFace();
 	        if (oppFace.mark == Face.VISIBLE) {
-	            // REPLACE: oppFace.distanceToPlane(eyePnt) > tolerance
 	            if (isOutsideFace(oppFace, eyeVtx)) {
 	                calculateHorizon(eyeVtx, edge.getOpposite(), oppFace, horizon);
 	            } else {
@@ -1047,7 +1047,7 @@ public class QuickHull3D {
 		return face.getEdge(0);
 	}
 
-	protected void addNewFaces(FaceList newFaces, Vertex eyeVtx, Vector<HalfEdge> horizon) {
+	protected void addNewFaces(FaceList newFaces, Vertex eyeVtx, List<HalfEdge> horizon) {
 		newFaces.clear();
 
 		HalfEdge hedgeSidePrev = null;
@@ -1220,7 +1220,7 @@ public class QuickHull3D {
 			Vertex c = witnessForEdge(he);            // from this face
 			Vertex d = witnessForEdge(he.opposite);   // from opposite face
 
-			// With your orient3d convention: outside is negative.
+			// orient3d convention: outside is negative.
 			// For a convex hull, the opposite face's witness must be inside or coplanar => det >= 0.
 			double det1 = ExactJavaPredicates.orient(a, b, c, d);
 			if (det1 < 0) {
