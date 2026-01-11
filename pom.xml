@@ -6,7 +6,7 @@
 
 	<groupId>com.github.quickhull3d</groupId>
 	<artifactId>quickhull3d</artifactId>
-	<version>1.0.1-SNAPSHOT</version>
+	<version>0.9</version>
 	<packaging>jar</packaging>
 
 	<name>A Robust 3D Convex Hull Algorithm in Java</name>
