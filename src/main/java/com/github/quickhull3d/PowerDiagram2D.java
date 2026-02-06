@@ -11,8 +11,35 @@ import java.util.Objects;
  */
 public class PowerDiagram2D {
 
-	/** Result: one polygon (possibly empty) per site index. Polygons are CCW. */
-	public static List<List<Pt>> computeCells(double[] x, double[] y, double[] w, Rect clipOrNull) {
+	/**
+	 * Computes the clipped 2D power diagram (a.k.a. weighted Voronoi / Laguerre
+	 * diagram) for the given sites and weights.
+	 *
+	 * <p>
+	 * The result is a list of {@link Cell} objects where each cell contains:
+	 * <ul>
+	 * <li>the originating site index ({@link Cell#siteIndex()})</li>
+	 * <li>a CCW polygon ({@link Cell#polygon()}) clipped to {@code clipOrNull}</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * <b>Validity / empties:</b> this method returns <b>only valid, non-empty</b>
+	 * cells. Sites that are hidden (not on the lower hull of the lifted points) or
+	 * whose clipped polygon becomes empty are <b>omitted</b> from the returned
+	 * list. Therefore, the list size may be less than {@code x.length}.
+	 *
+	 * @param x          x-coordinates of sites
+	 * @param y          y-coordinates of sites
+	 * @param w          weights of sites (same length as {@code x} and {@code y})
+	 * @param clipOrNull clipping rectangle; if {@code null}, a default rectangle is
+	 *                   chosen
+	 * @return a list of valid cells (each polygon has at least 3 vertices), in no
+	 *         guaranteed order other than construction order; no empty cells are
+	 *         included
+	 * @throws IllegalArgumentException if {@code x}, {@code y}, and {@code w} do
+	 *                                  not have the same length
+	 */
+	public static List<Cell> computeCells(double[] x, double[] y, double[] w, Rect clipOrNull) {
 		int n = x.length;
 		if (y.length != n || w.length != n) {
 			throw new IllegalArgumentException("x,y,w must have same length");
@@ -64,11 +91,10 @@ public class PowerDiagram2D {
 		}
 
 		// 3) For each site, clip the rectangle by all neighbor bisector half-planes
-		List<List<Pt>> cells = new ArrayList<>(n);
+		List<Cell> cells = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
 			if (!active[i]) {
-				cells.add(List.of()); // hidden site => empty power cell
-				continue;
+				continue; // hidden site => no returned cell
 			}
 
 			List<Pt> poly = rectPolyCCW(clip);
@@ -78,14 +104,17 @@ public class PowerDiagram2D {
 					break;
 				}
 			}
-			cells.add(poly);
+
+			if (!poly.isEmpty()) {
+				cells.add(new Cell(i, poly));
+			}
 		}
 
 		return cells;
 	}
 
-	public static List<List<Pt>> computeCells(List<Site> sites, Rect clipOrNull) {
-		// Convert to parallel arrays for internal processing
+	/** Convenience overload taking Site objects. */
+	public static List<Cell> computeCells(List<Site> sites, Rect clipOrNull) {
 		int n = sites.size();
 		double[] x = new double[n];
 		double[] y = new double[n];
@@ -336,6 +365,45 @@ public class PowerDiagram2D {
 
 		public double w() {
 			return w;
+		}
+	}
+
+	/** One cell per site index. Polygons are CCW. */
+	public static final class Cell {
+		private final int siteIndex;
+		private final List<Pt> polygon;
+
+		public Cell(int siteIndex, List<Pt> polygon) {
+			this.siteIndex = siteIndex;
+			this.polygon = (polygon == null) ? List.of() : polygon;
+		}
+
+		public int siteIndex() {
+			return siteIndex;
+		}
+
+		public List<Pt> polygon() {
+			return polygon;
+		}
+
+		@Override
+		public String toString() {
+			return "Cell[siteIndex=" + siteIndex + ", polygonSize=" + polygon.size() + "]";
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null || getClass() != obj.getClass())
+				return false;
+			Cell other = (Cell) obj;
+			return siteIndex == other.siteIndex && Objects.equals(polygon, other.polygon);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(siteIndex, polygon);
 		}
 	}
 
